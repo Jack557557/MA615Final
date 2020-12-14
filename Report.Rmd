@@ -1,0 +1,220 @@
+---
+title: "615 Final Report"
+author: "Xijia Luo"
+date: "December 14, 2020"
+output: 
+  html_document: 
+    theme: spacelab
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(shiny)
+library(shinydashboard)
+```
+
+# Introduction
+
+This project is about text mining which we have learnt in the second half of the semester. Since most of us will be looking for a job after graduation next semester, doing some text exploration and mining work about data science or statistical job description will be very helpful for us in the future. We crawled data from Indeed which is an American worldwide employment website for job listings launched.
+
+indeed link: https://www.indeed.com/
+![](/Users/Jack-/Desktop/615final project/indeed.png)
+We use all kinds of text mining and R knowledge we learned in class to process and analyze the original data to study the following questions.
+
+1. Which skills and knowledge we need to master
+
+2. What are we going to do in the job?
+
+3. Requirements for years of working experience?
+
+# Data crawling
+
+The first thing we need to do is to crawl the data from the target site. The procedures and detailed codes can be found in the indee_scrape.R file under the same repository directory from my github. Here is a preview of data I got.
+
+```{r include=FALSE}
+listings<-read.csv("C:/Users/Jack-/Desktop/615final project/listings.csv")
+```
+
+```{r echo=FALSE}
+kable(listings[1:5,2:5])
+```
+I didn't display the decription part for it is too long which not fit the page well. Also, if you want see the complete dataset, you would find it the listings.csv file under the same repository directory from my github.
+
+# Location distribution
+
+The location of a job is an important indicator to judge personal fit. In this part, I will do some EDA work for my original dataset show the distribution of the jobs provided on the indeed.com.  The data crawled by everyone is very different, because it will change according to your IP address. Therefore, I strongly recommend that you run the data crawler R file provided by me before using my report and shinyapp, so that my analysis report and shinyapp can be more helpful since the more jobs in the dataset are near your location.
+
+
+```{r echo=FALSE}
+#separate state and city
+listings<-listings%>% separate(location, c("city", "state"), ", ")
+#remove NA
+listings[is.na(listings)] <- "Whole Country"
+kable(listings[1:5,2:5])
+```
+
+Firstly, I separate the column "Location" into variable "City" and "State". Then, I reassign all Na value as "whole country" because many jobs do not specify specific locations so that it is responsible to consider them as nationwide.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#state
+statejob<-listings%>%group_by(state)%>%summarise(count = n())%>%arrange(desc(count))
+statejob$count<-as.numeric(statejob$count)
+kable(statejob[1:5,])
+```
+I sorted out the number of data scientist and statistics related jobs in each state and ranked them in descending order. The top state is Pennsylvania main because I am in State college, PA right now. Second in the list is the country, which is also very persuasive since Under the influence of covid19, many companies, especially technology companies, allow employees to work from home. Thus, it is reasonable not to provide location information when recruiting. The economy of NY and Ca is very developed, and there are many financial technology companies. So their demand for talent in data science will be higher than in other states. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#state
+cityjob<-listings%>%group_by(state,city)%>%summarise(count = n())%>%arrange(desc(count))
+kable(cityjob[2:6,])
+```
+Then we move on to the cities. From the result, we can find out that the more prosperous and developed a big city is, the more job opportunities there are. For example, New York as the top1 city in the world, has the most data science and statistical related job opportunities. As a conclusion, there are more demand for employee who mastered data science in economically developed areas. 
+
+# Common Word Analyze
+
+In this part, I will do some text mining work for the column "description" to see what's are the most common words a company will use when recruiting online. I also doing some data visualization work to display the word frequency more dynamic by making a word cloud.
+
+### Table
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=TRUE}
+# describe 
+library(tm)
+library(tidytext)
+library(ggplot2)
+library(wordcloud2)
+library(igraph)
+library(ggraph)
+
+listings$description<-as.character(listings$description)
+tidy_list <- listings %>% unnest_tokens(word,description)
+#remove stop words
+data(stop_words)
+tidy_list <- tidy_list %>%
+  anti_join(stop_words)
+#most frequency words
+data<-tidy_list %>% count(word, sort = TRUE)
+
+kable(data[1:15,])
+```
+
+### Rank
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=TRUE}
+ggplot(data=tidy_list %>% count(word, sort = TRUE)%>% head(20)%>%mutate(word = reorder(word, n)),aes(n, word))+geom_col() +
+      labs(y = NULL)
+```
+
+### Word Cloud
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=TRUE}
+data<-data%>%head(50)
+    wordcloud2(data, color = "random-light", backgroundColor = "grey")
+```
+From the result, we can make a summary of the work content and requirements. The content of the work includes working in "team" dealing with various "data", mastering various "skills", "ability" and working "experience". The main "business" is to "analysis" "information".The necessay "required" skills include "modeling", "python", "research", and "computer".
+
+# Common Phrase Analyze
+When I was writing the analysis in last part, I feel constrained. For example, "machine" and "engineering" are both very high frequency words, however we are looking for a job about data science not mechanical engineering. Therefore, I think the lerning phrase is very important.Here I mainly study two word phrases, and then do some data visualization.
+
+### Phrase Table
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+tidy_list2 <- listings %>% unnest_tokens(bigram, description, token = "ngrams", n = 2)
+
+#most frequency words
+tidy_list2_separated <- tidy_list2 %>%
+  separate(bigram, c("word1", "word2"), sep = " ")
+tidy_list2_filtered <- tidy_list2_separated %>%
+  filter(!word1 %in% stop_words$word) %>%
+  filter(!word2 %in% stop_words$word)
+tidy_list2_counts <- tidy_list2_filtered %>% 
+  count(word1, word2, sort = TRUE)
+kable(tidy_list2_counts[1:15,])
+```
+
+### Phrase Rank
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=TRUE}
+ tidy_list2_graph <- tidy_list2_counts %>%
+      filter(n > 20) %>%
+      graph_from_data_frame()
+    
+tidy_list2_counts$word<-paste(tidy_list2_counts$word1,tidy_list2_counts$word2)
+tidy_list2_counts$word1<-NULL
+tidy_list2_counts$word2<-NULL
+ggplot(data= tidy_list2_counts %>% head(20)%>%mutate(word = reorder(word, n)),aes(n, word))+geom_col() +
+      labs(y = NULL)
+```
+
+### Phrase Cloud
+
+```{r eval=FALSE, message=FALSE, warning=TRUE, include=FALSE, paged.print=TRUE}
+    data1<- tidy_list2_counts%>%head(60)
+    data1<-select(data1,"word","n")
+    wordcloud2(data1, color = "random-light", backgroundColor = "black")
+```
+![](/Users/Jack-/Desktop/615final project/phrase word cloud.png)
+
+
+### Phrase Nod Network
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=TRUE}
+n=1
+a <- grid::arrow(type = "closed", length = unit(.15, "inches"))
+    
+    ggraph(tidy_list2_graph, layout = "fr") +
+      geom_edge_link(aes(edge_alpha = n), show.legend = FALSE,
+                     arrow = a, end_cap = circle(.07, 'inches')) +
+      geom_node_point(color = "lightblue", size = 5) +
+      geom_node_text(aes(label = name), vjust = 1, hjust = 1) +
+      theme_void()
+    
+```
+In this way, the meaning of the keyword is much more clear. For example, "machine" is followed by learning instead of engineering. That make sense. Through the analysis of phrases, we update our analysis of job description. We need to master computer science, communication skills, business intelligence, data mining, data management and data visualization. The fields involved include quantitative field, statistical modeling, real world, health care, data collection, predictive models, and data driven. The required educational level is bachelor's degree. From the nod plot we can see tht relationship between these high frequency words. When the phrase went up to three words, excellent communication skills is one of the most common phrase which means team work is really important in data science related jobs.
+
+### Search Box
+
+Besides word data, there are plent of other interesting words and related phrase depend on users. Thus, I made a search box in my shiny app to let user search the key words they are interested in. The output will be a rank of frequency about the key word you input and its related phrase. 
+
+```{r textbox, echo=FALSE}
+textInput("text", label = h3("Keyword Input, like years"), value = "Enter text...")
+
+ renderPlot({ tidy_list2 <- listings %>% unnest_tokens(bigram, description, token = "ngrams", n = 2)
+    stop_words[1142,1]="stupid"
+    #most frequency words
+    tidy_list2_separated <- tidy_list2 %>%
+      separate(bigram, c("word1", "word2"), sep = " ")
+    tidy_list2_filtered <- tidy_list2_separated %>%
+      filter(!word1 %in% stop_words$word) %>%
+      filter(!word2 %in% stop_words$word)
+    tidy_list2_counts<-tidy_list2_filtered %>%
+      filter(word2 == input$text) %>%
+      count(word1, word2, sort = TRUE)
+    tidy_list2_counts$word<-paste(tidy_list2_counts$word1,tidy_list2_counts$word2)
+    ggplot(data= tidy_list2_counts %>% head(20)%>%mutate(word = reorder(word, n)),aes(n, word))+geom_col() +
+      labs(y = NULL)
+})
+
+```
+
+For example, when we doing the words frequency check, we find out that work experience important. Then we can search years in the search box above to see most common Work experience requirement for data science jobs. Here is the result.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+tidy_list2 <- listings %>% unnest_tokens(bigram, description, token = "ngrams", n = 2)
+    stop_words[1142,1]="stupid"
+    #most frequency words
+    tidy_list2_separated <- tidy_list2 %>%
+      separate(bigram, c("word1", "word2"), sep = " ")
+    tidy_list2_filtered <- tidy_list2_separated %>%
+      filter(!word1 %in% stop_words$word) %>%
+      filter(!word2 %in% stop_words$word)
+    tidy_list2_counts<-tidy_list2_filtered %>%
+      filter(word2 == "years") %>%
+      count(word1, word2, sort = TRUE)
+    tidy_list2_counts$word<-paste(tidy_list2_counts$word1,tidy_list2_counts$word2)
+    ggplot(data= tidy_list2_counts %>% head(20)%>%mutate(word = reorder(word, n)),aes(n, word))+geom_col() +
+      labs(y = NULL)
+```
+
+From the plot we can see that most jobs required a employee with at least 2 years of working experience and the most common requirement is 3 years.
+
+# Conclusion
+
+We found some advantages and disadvantages of looking for a data science and statistical job through  this project. The advantage is that we all have strong teamwork and communication skills. This is due to the fact that we have been working as a team during the graduate study at BU MSSP. Another advantage is that our expertise is well matched. Including the text mining I used this time, the modeling skills I learned in class 678, and the machine learning I will learn in class 679 next semester. Our disadvantage is that we don't have enough work experience. Most of our jobs require two years of working experience. 

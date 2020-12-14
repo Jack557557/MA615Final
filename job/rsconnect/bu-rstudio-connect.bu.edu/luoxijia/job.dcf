@@ -1,0 +1,12 @@
+name: job
+title: job
+username: luoxijia
+account: luoxijia
+server: bu-rstudio-connect.bu.edu
+hostUrl: https://bu-rstudio-connect.bu.edu/__api__
+appId: 26
+bundleId: 65
+url: https://bu-rstudio-connect.bu.edu/content/26/
+when: 1607925515.05995
+asMultiple: FALSE
+asStatic: FALSE

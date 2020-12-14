@@ -1,0 +1,12 @@
+name: jobtextmining
+title: jobtextmining
+username:
+account: luoxijia
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 3397854
+bundleId: 3985613
+url: https://luoxijia.shinyapps.io/jobtextmining/
+when: 1607925293.57799
+asMultiple: FALSE
+asStatic: FALSE
